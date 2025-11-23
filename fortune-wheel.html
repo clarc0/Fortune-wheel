@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <title>Marlens Fortune Wheel</title>
+    <style>
+        body {
+            background: #fafafa;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 40px;
+        }
+        h2 {
+            font-weight: 600;
+        }
+        canvas {
+            border-radius: 50%;
+            border: 4px solid #333;
+        }
+        button {
+            margin-top: 25px;
+            padding: 14px 40px;
+            font-size: 18px;
+            border: none;
+            background: #0077ff;
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.6;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Marlens Fortune Wheel</h2>
+<canvas id="wheel" width="300" height="300"></canvas>
+<br/>
+<button id="spinBtn" onclick="spin()">Крутить</button>
+
+<div id="result"></div>
+
+<script>
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+
+const prizes = [
+    "Пусто",
+    "5% скидка на квест",
+    "Пусто",
+    "20% скидка на квест",  // <- выпадать всегда
+    "Пусто",
+    "Пусто"
+];
+
+const targetIndex = 3;  // фиксированное попадание
+const sectorCount = prizes.length;
+const arc = 2 * Math.PI / sectorCount;
+
+function drawWheel(rotation = 0) {
+    for (let i = 0; i < sectorCount; i++) {
+        ctx.beginPath();
+        ctx.fillStyle = i % 2 === 0 ? "#ffe8a1" : "#ffd480";
+        ctx.moveTo(150, 150);
+        ctx.arc(150, 150, 150, arc * i + rotation, arc * (i + 1) + rotation);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(150, 150);
+        ctx.rotate(arc * i + arc / 2 + rotation);
+        ctx.fillStyle = "#333";
+        ctx.font = "16px Arial";
+        ctx.fillText(prizes[i], 50, 5);
+        ctx.restore();
+    }
+}
+
+drawWheel();
+
+function spin() {
+    const btn = document.getElementById("spinBtn");
+    btn.disabled = true;
+
+    document.getElementById("result").innerHTML = "";
+
+    let angle = 0;
+    let speed = 0.35;
+    const friction = 0.985;
+
+    const finalRotation = (Math.PI * 6) + (arc * targetIndex + arc / 2);
+
+    const spinInterval = setInterval(() => {
+        angle += speed;
+        speed *= friction;
+
+        ctx.clearRect(0, 0, 300, 300);
+        drawWheel(angle);
+
+        if (speed < 0.002) {
+            clearInterval(spinInterval);
+
+            ctx.clearRect(0, 0, 300, 300);
+            drawWheel(finalRotation);
+
+            document.getElementById("result").innerHTML =
+                "Ваш выигрыш: <b>20% скидка на квест</b>";
+
+            btn.disabled = false;
+        }
+    }, 20);
+}
+</script>
+
+</body>
+</html>
