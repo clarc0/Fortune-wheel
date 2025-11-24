@@ -33,7 +33,7 @@
     position: absolute;
     top: -5%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) rotate(180deg);
     width: 0;
     height: 0;
     border-left: 20px solid transparent;
@@ -59,7 +59,7 @@
     text-align: center;
     padding: 20px;
     border-radius: 20px;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(12px);
     opacity: 0;
     transition: 0.4s ease;
     pointer-events: none;
@@ -140,13 +140,13 @@ function spinWheel() {
   let arc = (2 * Math.PI) / slices.length;
 
   // Вычисление финального угла
-  let targetAngle = (Math.PI / 2) - arc * (targetIndex + 0.5);
+  let targetAngle = -arc * (targetIndex + 0.5);
 
   // Добавляем 5+ оборотов
   let finalRotation = targetAngle + Math.PI * 10;
 
   let start = rotation;
-  let duration = 4000;
+  let duration = 6000;
   let startTime = performance.now();
 
   function animate(now) {
@@ -184,6 +184,7 @@ canvas.addEventListener("click", spinWheel);
 </script>
 </body>
 </html>
+
 </script>
 
 </body>
