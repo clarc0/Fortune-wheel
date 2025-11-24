@@ -1,120 +1,189 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <title>Marlens Fortune Wheel</title>
-    <style>
-        body {
-            background: #fafafa;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 40px;
-        }
-        h2 {
-            font-weight: 600;
-        }
-        canvas {
-            border-radius: 50%;
-            border: 4px solid #333;
-        }
-        button {
-            margin-top: 25px;
-            padding: 14px 40px;
-            font-size: 18px;
-            border: none;
-            background: #0077ff;
-            color: white;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-        button:disabled {
-            opacity: 0.6;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 20px;
-            font-weight: bold;
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Marlens Fortune Wheel</title>
+<style>
+  body {
+    margin: 0;
+    background: #0f0f0f;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  #wrapper {
+    position: relative;
+    width: 90vw;
+    max-width: 480px;
+    aspect-ratio: 1/1;
+  }
+
+  #wheelCanvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Стрелка */
+  #pointer {
+    position: absolute;
+    top: -5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-bottom: 35px solid #ffcf33;
+    filter: drop-shadow(0 0 5px #000);
+  }
+
+  /* Модальное уведомление */
+  #winnerModal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.65);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 1.6rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 20px;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: 0.4s ease;
+    pointer-events: none;
+  }
+
+  #winnerModal.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+</style>
 </head>
 <body>
 
-<h2>Marlens Fortune Wheel</h2>
-<canvas id="wheel" width="300" height="300"></canvas>
-<br/>
-<button id="spinBtn" onclick="spin()">Крутить</button>
-
-<div id="result"></div>
+<div id="wrapper">
+  <div id="pointer"></div>
+  <canvas id="wheelCanvas"></canvas>
+  <div id="winnerModal"></div>
+</div>
 
 <script>
-const canvas = document.getElementById("wheel");
+const canvas = document.getElementById("wheelCanvas");
 const ctx = canvas.getContext("2d");
+let size = canvas.width = canvas.height = 800;
 
-const prizes = [
-    "Пусто",
-    "5% скидка на квест",
-    "Пусто",
-    "20% скидка на квест",  // <- выпадать всегда
-    "Пусто",
-    "Пусто"
+// Сегменты колеса
+const slices = [
+  "Пусто",
+  "5% скидка",
+  "Пусто",
+  "20% скидка",
+  "Пусто",
+  "5% скидка"
 ];
 
-const targetIndex = 3;  // фиксированное попадание
-const sectorCount = prizes.length;
-const arc = 2 * Math.PI / sectorCount;
+// Цвета
+const colors = ["#ff5555", "#55aaff", "#ffaa00", "#33cc66", "#aa55ff", "#ff8844"];
 
-function drawWheel(rotation = 0) {
-    for (let i = 0; i < sectorCount; i++) {
-        ctx.beginPath();
-        ctx.fillStyle = i % 2 === 0 ? "#ffe8a1" : "#ffd480";
-        ctx.moveTo(150, 150);
-        ctx.arc(150, 150, 150, arc * i + rotation, arc * (i + 1) + rotation);
-        ctx.fill();
+// Угол
+let rotation = 0;
+let spinning = false;
 
-        ctx.save();
-        ctx.translate(150, 150);
-        ctx.rotate(arc * i + arc / 2 + rotation);
-        ctx.fillStyle = "#333";
-        ctx.font = "16px Arial";
-        ctx.fillText(prizes[i], 50, 5);
-        ctx.restore();
-    }
+function drawWheel() {
+  let arc = (2 * Math.PI) / slices.length;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.translate(size / 2, size / 2);
+  ctx.rotate(rotation);
+
+  for (let i = 0; i < slices.length; i++) {
+    ctx.beginPath();
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, size / 2, arc * i, arc * (i + 1));
+    ctx.fill();
+    ctx.save();
+
+    ctx.rotate(arc * (i + 0.5));
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 32px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(slices[i], size / 4, 10);
+
+    ctx.restore();
+  }
+
+  ctx.restore();
 }
 
 drawWheel();
 
-function spin() {
-    const btn = document.getElementById("spinBtn");
-    btn.disabled = true;
+function spinWheel() {
+  if (spinning) return;
+  spinning = true;
 
-    document.getElementById("result").innerHTML = "";
+  // Всегда выигрываем "20% скидка"
+  let targetIndex = slices.indexOf("20% скидка");
+  let arc = (2 * Math.PI) / slices.length;
 
-    let angle = 0;
-    let speed = 0.35;
-    const friction = 0.985;
+  // Вычисление финального угла
+  let targetAngle = (Math.PI / 2) - arc * (targetIndex + 0.5);
 
-    const finalRotation = (Math.PI * 6) + (arc * targetIndex + arc / 2);
+  // Добавляем 5+ оборотов
+  let finalRotation = targetAngle + Math.PI * 10;
 
-    const spinInterval = setInterval(() => {
-        angle += speed;
-        speed *= friction;
+  let start = rotation;
+  let duration = 4000;
+  let startTime = performance.now();
 
-        ctx.clearRect(0, 0, 300, 300);
-        drawWheel(angle);
+  function animate(now) {
+    let progress = Math.min((now - startTime) / duration, 1);
+    // easeOutCubic
+    let eased = 1 - Math.pow(1 - progress, 3);
 
-        if (speed < 0.002) {
-            clearInterval(spinInterval);
+    rotation = start + (finalRotation - start) * eased;
+    drawWheel();
 
-            ctx.clearRect(0, 0, 300, 300);
-            drawWheel(finalRotation);
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      showWinner("20% скидка");
+      spinning = false;
+    }
+  }
 
-            document.getElementById("result").innerHTML =
-                "Ваш выигрыш: <b>20% скидка на квест</b>";
-
-            btn.disabled = false;
-        }
-    }, 20);
+  requestAnimationFrame(animate);
 }
+
+// Модалка победителя
+function showWinner(text) {
+  const modal = document.getElementById("winnerModal");
+  modal.innerHTML = "🎉 Вы выиграли: <br><br>" + text + " 🎉";
+  modal.classList.add("show");
+
+  setTimeout(() => {
+    modal.classList.remove("show");
+  }, 5000);
+}
+
+// Клик по колесу
+canvas.addEventListener("click", spinWheel);
+</script>
+</body>
+</html>
 </script>
 
 </body>
