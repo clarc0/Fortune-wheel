@@ -1,191 +1,351 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Marlens Fortune Wheel</title>
-<style>
-  body {
-    margin: 0;
-    background: #0f0f0f;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Marlens Fortune Wheel</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent-gold: #d4af37; /* Благородное золото */
+            --dark-bg: #121212;
+            --panel-bg: #1e1e1e;
+        }
 
-  #wrapper {
-    position: relative;
-    width: 90vw;
-    max-width: 480px;
-    aspect-ratio: 1/1;
-  }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--dark-bg);
+            color: #ffffff;
+            overflow: hidden;
+            touch-action: none;
+            background: radial-gradient(circle at top, #2a2a2a, #000000);
+        }
 
-  #wheelCanvas {
-    width: 100%;
-    height: 100%;
-  }
+        /* Указатель (Золотой треугольник) */
+        .pointer-container {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
 
-  /* Стрелка */
-  #pointer {
-    position: absolute;
-    top: -5%;
-    left: 50%;
-    transform: translateX(-50%) rotate(180deg);
-    width: 0;
-    height: 0;
-    border-left: 20px solid transparent;
-    border-right: 20px solid transparent;
-    border-bottom: 35px solid #ffcf33;
-    filter: drop-shadow(0 0 5px #000);
-  }
+        .pointer-shape {
+            width: 0; 
+            height: 0; 
+            border-left: 16px solid transparent;
+            border-right: 16px solid transparent;
+            border-top: 36px solid var(--accent-gold);
+        }
 
-  /* Модальное уведомление */
-  #winnerModal {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.65);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-size: 1.6rem;
-    font-weight: bold;
-    text-align: center;
-    padding: 20px;
-    border-radius: 20px;
-    backdrop-filter: blur(12px);
-    opacity: 0;
-    transition: 0.4s ease;
-    pointer-events: none;
-  }
+        /* Контейнер колеса с тенью */
+        .wheel-wrapper {
+            position: relative;
+            width: 340px;
+            height: 340px;
+            margin: 0 auto;
+            border-radius: 50%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 0 10px rgba(255,255,255,0.05);
+        }
 
-  #winnerModal.show {
-    opacity: 1;
-    pointer-events: all;
-  }
-</style>
+        /* Модальное окно (Glassmorphism) */
+        #result-modal {
+            background: rgba(30, 30, 30, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #result-modal.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Кнопка */
+        .btn-gold {
+            background: linear-gradient(135deg, #d4af37 0%, #c5a028 100%);
+            color: #000;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        }
+        .btn-gold:active {
+            transform: scale(0.98);
+        }
+        .btn-gold:disabled {
+            background: #333;
+            color: #666;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* Анимация появления контента */
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col items-center justify-between py-10">
 
-<div id="wrapper">
-  <div id="pointer"></div>
-  <canvas id="wheelCanvas"></canvas>
-  <div id="winnerModal"></div>
-</div>
+    <!-- Header -->
+    <div class="text-center z-10 fade-in" style="animation-delay: 0.1s;">
+        <h1 class="text-3xl font-bold tracking-tight mb-1 text-white uppercase">Marlens</h1>
+        <div class="h-0.5 w-12 bg-[#d4af37] mx-auto mb-2"></div>
+        <p class="text-gray-400 text-xs font-medium tracking-[0.3em] uppercase">Privilege Club</p>
+    </div>
 
-<script>
-const canvas = document.getElementById("wheelCanvas");
-const ctx = canvas.getContext("2d");
-let size = canvas.width = canvas.height = 800;
+    <!-- Wheel Section -->
+    <div class="relative w-full flex justify-center items-center flex-grow fade-in" style="animation-delay: 0.3s;">
+        <div class="wheel-wrapper">
+            <div class="pointer-container">
+                <div class="pointer-shape"></div>
+            </div>
+            <canvas id="wheelCanvas" width="340" height="340"></canvas>
+        </div>
+    </div>
 
-// Сегменты колеса
-const slices = [
-  "Пусто",
-  "5% скидка",
-  "Пусто",
-  "20% скидка",
-  "Пусто",
-  "5% скидка"
-];
+    <!-- Controls -->
+    <div class="w-full px-6 pb-6 z-10 fade-in" style="animation-delay: 0.5s;">
+        <p id="status-text" class="text-center text-gray-500 text-sm mb-4 h-5 transition-all duration-300">
+            Испытайте удачу
+        </p>
+        <button id="spinBtn" class="btn-gold w-full py-4 rounded-xl font-bold text-lg uppercase tracking-wide">
+            Вращать колесо
+        </button>
+    </div>
 
-// Цвета
-const colors = ["#ff5555", "#55aaff", "#ffaa00", "#33cc66", "#aa55ff", "#ff8844"];
+    <!-- Result Modal Overlay -->
+    <div id="result-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity duration-500 opacity-0"></div>
+    
+    <!-- Result Modal -->
+    <div id="result-modal" class="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl p-8 pb-12 text-center">
+        <div class="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6"></div>
+        
+        <h2 class="text-white/60 text-sm uppercase tracking-widest mb-2">Ваш приз</h2>
+        <div id="prize-value" class="text-4xl font-bold text-[#d4af37] mb-8">
+            20% СКИДКА
+        </div>
+        
+        <div class="space-y-3">
+            <button id="claimBtn" class="w-full bg-white text-black py-4 rounded-xl font-bold text-base hover:bg-gray-200 transition-colors">
+                Забронировать
+            </button>
+            <button onclick="Telegram.WebApp.close()" class="w-full text-gray-400 py-3 text-sm hover:text-white transition-colors">
+                Закрыть
+            </button>
+        </div>
+    </div>
 
-// Угол
-let rotation = 0;
-let spinning = false;
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
 
-function drawWheel() {
-  let arc = (2 * Math.PI) / slices.length;
+        // Конфигурация колеса
+        // Используем строгие цвета: Темно-серый и Чуть светлее серый для контраста
+        const colors = {
+            dark: '#1a1a1a',
+            light: '#252525',
+            text: '#ffffff',
+            highlight: '#d4af37' // Золото
+        };
 
-  ctx.clearRect(0, 0, size, size);
-  ctx.save();
-  ctx.translate(size / 2, size / 2);
-  ctx.rotate(rotation);
+        const segments = [
+            { text: "20% OFF", type: "win" },
+            { text: "TRY AGAIN", type: "lose" },
+            { text: "FREE DRINK", type: "win" },
+            { text: "10% OFF", type: "win" },
+            { text: "VIP STATUS", type: "win" },
+            { text: "NO LUCK", type: "lose" },
+            { text: "FREE GAME", type: "win" },
+            { text: "MYSTERY", type: "win" }
+        ];
 
-  for (let i = 0; i < slices.length; i++) {
-    ctx.beginPath();
-    ctx.fillStyle = colors[i % colors.length];
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, size / 2, arc * i, arc * (i + 1));
-    ctx.fill();
-    ctx.save();
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const statusText = document.getElementById('status-text');
+        const modal = document.getElementById('result-modal');
+        const overlay = document.getElementById('result-overlay');
+        const prizeValue = document.getElementById('prize-value');
+        const claimBtn = document.getElementById('claimBtn');
 
-    ctx.rotate(arc * (i + 0.5));
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 32px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(slices[i], size / 4, 10);
+        let currentAngle = 0;
+        let isSpinning = false;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = canvas.width / 2;
 
-    ctx.restore();
-  }
+        // Проверка LocalStorage
+        if (localStorage.getItem('marlens_spin_done')) {
+            disableSpin("Вы уже использовали свою попытку");
+        }
 
-  ctx.restore();
-}
+        function drawWheel() {
+            const arcSize = (2 * Math.PI) / segments.length;
 
-drawWheel();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            segments.forEach((segment, i) => {
+                const angle = currentAngle + i * arcSize;
+                
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angle, angle + arcSize);
+                
+                // Строгая чередующаяся заливка
+                ctx.fillStyle = i % 2 === 0 ? colors.dark : colors.light;
+                ctx.fill();
+                
+                // Тонкая разделительная линия
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+                ctx.lineWidth = 1;
+                ctx.stroke();
 
-function spinWheel() {
-  if (spinning) return;
-  spinning = true;
+                // Текст
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle + arcSize / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = colors.text;
+                ctx.font = "600 13px Inter"; // Строгий шрифт
+                ctx.fillText(segment.text, radius - 35, 4);
+                
+                // Декоративная точка
+                if (segment.type === 'win') {
+                    ctx.beginPath();
+                    ctx.arc(radius - 15, 0, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = colors.highlight;
+                    ctx.fill();
+                }
 
-  // Всегда выигрываем "20% скидка"
-  let targetIndex = slices.indexOf("20% скидка");
-  let arc = (2 * Math.PI) / slices.length;
+                ctx.restore();
+            });
 
-  // Вычисление финального угла
-  let targetAngle = -arc * (targetIndex + 0.5);
+            // Центральный круг (декор)
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 40, 0, 2 * Math.PI);
+            ctx.fillStyle = '#121212';
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 38, 0, 2 * Math.PI);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = colors.highlight;
+            ctx.stroke();
+            
+            // Логотип/Буква в центре
+            ctx.fillStyle = colors.highlight;
+            ctx.font = "bold 24px Inter";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("M", centerX, centerY + 2);
+        }
 
-  // Добавляем 5+ оборотов
-  let finalRotation = targetAngle + Math.PI * 10;
+        function spin() {
+            if (isSpinning) return;
+            if (localStorage.getItem('marlens_spin_done')) return;
 
-  let start = rotation;
-  let duration = 6000;
-  let startTime = performance.now();
+            isSpinning = true;
+            spinBtn.disabled = true;
+            statusText.innerText = "Вращение...";
+            statusText.style.opacity = "0.5";
 
-  function animate(now) {
-    let progress = Math.min((now - startTime) / duration, 1);
-    // easeOutCubic
-    let eased = 1 - Math.pow(1 - progress, 3);
+            // Логика вращения
+            const minSpins = 5;
+            const extraSpins = Math.random() * 3;
+            const spinRotations = (minSpins + extraSpins) * 2 * Math.PI;
+            
+            // Случайное смещение
+            const randomOffset = Math.random() * (2 * Math.PI);
+            const targetAngle = currentAngle + spinRotations + randomOffset;
 
-    rotation = start + (finalRotation - start) * eased;
-    drawWheel();
+            const duration = 4500;
+            const startTime = performance.now();
 
-    if (progress < 1) {
-      requestAnimationFrame(animate);
-    } else {
-      showWinner("20% скидка");
-      spinning = false;
-    }
-  }
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing: cubic-bezier(0.25, 1, 0.5, 1) аналог
+                const easeOut = 1 - Math.pow(1 - progress, 4); 
+                
+                currentAngle = targetAngle * easeOut;
+                drawWheel();
 
-  requestAnimationFrame(animate);
-}
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    isSpinning = false;
+                    finishSpin();
+                }
+            }
+            requestAnimationFrame(animate);
+        }
 
-// Модалка победителя
-function showWinner(text) {
-  const modal = document.getElementById("winnerModal");
-  modal.innerHTML = "🎉 Вы выиграли: <br><br>" + text + " 🎉";
-  modal.classList.add("show");
+        function finishSpin() {
+            // Вычисление победителя
+            const arcSize = (2 * Math.PI) / segments.length;
+            const normalizedAngle = currentAngle % (2 * Math.PI);
+            
+            // Указатель сверху (270deg или 3PI/2)
+            const pointerAngle = (3 * Math.PI / 2); 
+            
+            let relativeAngle = (pointerAngle - normalizedAngle) % (2 * Math.PI);
+            if (relativeAngle < 0) relativeAngle += 2 * Math.PI;
 
-  setTimeout(() => {
-    modal.classList.remove("show");
-  }, 5000);
-}
+            const index = Math.floor(relativeAngle / arcSize);
+            const winner = segments[index];
 
-// Клик по колесу
-canvas.addEventListener("click", spinWheel);
-</script>
-</body>
-</html>
+            // Сохранение и показ
+            localStorage.setItem('marlens_spin_done', 'true');
+            localStorage.setItem('marlens_prize', winner.text);
+            
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
 
-</script>
+            showResult(winner.text);
+            disableSpin("Попытка использована");
+        }
 
+        function showResult(text) {
+            prizeValue.innerText = text;
+            overlay.hidden = false;
+            
+            // Fade in overlay
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                modal.classList.add('active');
+            }, 50);
+        }
+
+        function disableSpin(msg) {
+            spinBtn.disabled = true;
+            spinBtn.innerText = "Готово";
+            statusText.innerText = msg;
+            statusText.style.opacity = "1";
+        }
+
+        spinBtn.addEventListener('click', spin);
+        
+        claimBtn.addEventListener('click', () => {
+             // Логика кнопки "Забронировать"
+             // tg.sendData(JSON.stringify({ action: 'book', prize: prizeValue.innerText }));
+             tg.close();
+        });
+
+        // Init
+        drawWheel();
+
+    </script>
 </body>
 </html>
